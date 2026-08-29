@@ -1,0 +1,11 @@
+#
+# Normal rules
+#
+*~
+__pycache__
+
+#
+# Generated files
+#
+/.vscode
+/.venv
