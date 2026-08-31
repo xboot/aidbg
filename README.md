@@ -12,6 +12,7 @@ endpoint as a client. The AI does **not** start anything by itself.
 ```
 aidbg/
 ├── xserial/          # serial-port interactive terminal + MCP server
+├── xcamera/          # camera MCP server (photo + frame sequence capture)
 └── ...               # more tools coming
 ```
 
@@ -22,6 +23,7 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
 | Server   | Description                                  | Default endpoint               |
 |----------|----------------------------------------------|--------------------------------|
 | `xserial`| Shared serial session + interactive terminal | `http://127.0.0.1:30000/mcp`   |
+| `xcamera`| Camera capture (photo + frame sequences)     | `http://127.0.0.1:30001/mcp`   |
 
 ## Connect an AI (opencode.json)
 
@@ -32,6 +34,11 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
     "xserial": {
       "type": "remote",
       "url": "http://127.0.0.1:30000/mcp",
+      "enabled": true
+    },
+    "xcamera": {
+      "type": "remote",
+      "url": "http://127.0.0.1:30001/mcp",
       "enabled": true
     }
   }
@@ -51,4 +58,11 @@ cd aidbg
 python3 -m venv .venv
 .venv/bin/pip install mcp pyserial
 .venv/bin/python xserial/xserial.py /dev/ttyUSB0 115200
+```
+
+Camera debugging (needs `ffmpeg` on PATH):
+
+```bash
+.venv/bin/pip install mcp
+.venv/bin/python xcamera/xcamera.py
 ```
