@@ -13,6 +13,7 @@ endpoint as a client. The AI does **not** start anything by itself.
 aidbg/
 ├── xserial/          # serial-port interactive terminal + MCP server
 ├── xcamera/          # camera MCP server (photo + frame sequence capture)
+├── xrelay/           # 4-channel USB relay board MCP server
 └── ...               # more tools coming
 ```
 
@@ -24,6 +25,7 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
 |----------|----------------------------------------------|--------------------------------|
 | `xserial`| Shared serial session + interactive terminal | `http://127.0.0.1:30000/mcp`   |
 | `xcamera`| Camera capture (photo + frame sequences)     | `http://127.0.0.1:30001/mcp`   |
+| `xrelay` | 4-channel USB relay board (auto-finds its node) | `http://127.0.0.1:30002/mcp` |
 
 ## Connect an AI (opencode.json)
 
@@ -39,6 +41,11 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
     "xcamera": {
       "type": "remote",
       "url": "http://127.0.0.1:30001/mcp",
+      "enabled": true
+    },
+    "xrelay": {
+      "type": "remote",
+      "url": "http://127.0.0.1:30002/mcp",
       "enabled": true
     }
   }
@@ -65,4 +72,10 @@ Camera debugging (needs `ffmpeg` on PATH):
 ```bash
 .venv/bin/pip install mcp
 .venv/bin/python xcamera/xcamera.py
+```
+
+Relay board (auto-finds the USB node; `--device` pins it):
+
+```bash
+.venv/bin/python xrelay/xrelay.py
 ```
