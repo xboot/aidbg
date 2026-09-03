@@ -12,8 +12,8 @@ endpoint as a client. The AI does **not** start anything by itself.
 ```
 aidbg/
 ├── xserial/          # serial-port interactive terminal + MCP server
-├── xcamera/          # camera MCP server (photo + frame sequence capture)
 ├── xrelay/           # 4-channel USB relay board MCP server
+├── xcamera/          # camera MCP server (local preview + photo/frame capture)
 └── ...               # more tools coming
 ```
 
@@ -24,8 +24,8 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
 | Server   | Description                                  | Default endpoint               |
 |----------|----------------------------------------------|--------------------------------|
 | `xserial`| Shared serial session + interactive terminal | `http://127.0.0.1:30000/mcp`   |
-| `xcamera`| Camera capture (photo + frame sequences)     | `http://127.0.0.1:30001/mcp`   |
-| `xrelay` | 4-channel USB relay board (auto-finds its node) | `http://127.0.0.1:30002/mcp` |
+| `xrelay` | 4-channel USB relay board (auto-finds its node) | `http://127.0.0.1:30001/mcp` |
+| `xcamera`| Camera capture (photo + frame sequences)     | `http://127.0.0.1:30002/mcp` (preview `http://127.0.0.1:30003/`) |
 
 ## Connect an AI (opencode.json)
 
@@ -38,12 +38,12 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
       "url": "http://127.0.0.1:30000/mcp",
       "enabled": true
     },
-    "xcamera": {
+    "xrelay": {
       "type": "remote",
       "url": "http://127.0.0.1:30001/mcp",
       "enabled": true
     },
-    "xrelay": {
+    "xcamera": {
       "type": "remote",
       "url": "http://127.0.0.1:30002/mcp",
       "enabled": true
@@ -67,15 +67,16 @@ python3 -m venv .venv
 .venv/bin/python xserial/xserial.py /dev/ttyUSB0 115200
 ```
 
-Camera debugging (needs `ffmpeg` on PATH):
-
-```bash
-.venv/bin/pip install mcp
-.venv/bin/python xcamera/xcamera.py
-```
-
 Relay board (auto-finds the USB node; `--device` pins it):
 
 ```bash
 .venv/bin/python xrelay/xrelay.py
+```
+
+Camera debugging (needs `ffmpeg` on PATH). Start it, then open the local
+preview to aim the camera at your board:
+
+```bash
+.venv/bin/pip install mcp
+.venv/bin/python xcamera/xcamera.py    # preview: http://127.0.0.1:30003/
 ```

@@ -19,7 +19,7 @@ skipped. The found node is cached and re-scanned automatically on the next
 command after a replug.
 
 Usage:
-    xrelay.py [--device /dev/ttyUSB1] [--http 30002]
+    xrelay.py [--device /dev/ttyUSB1] [--http 30001]
 
 The AI does not start this program; you do.
 
@@ -41,7 +41,7 @@ import serial
 from mcp.server.mcpserver import MCPServer
 
 HOST = "127.0.0.1"
-DEFAULT_HTTP_PORT = 30002
+DEFAULT_HTTP_PORT = 30001
 HTTP_PATH = "/mcp"
 DEFAULT_BAUDRATE = 9600
 FRAME_HEAD = 0xA0
@@ -405,7 +405,7 @@ def main() -> None:
         description="4-channel USB relay board MCP server for hardware debugging",
         epilog="Examples:\n"
                "  xrelay.py\n"
-               "  xrelay.py --device /dev/ttyUSB1 --http 30002",
+               "  xrelay.py --device /dev/ttyUSB1 --http 30001",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--device", default=None,

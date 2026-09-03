@@ -2,7 +2,7 @@
 
 A single file, `xrelay.py`: controls a 4-channel USB relay module (9600 8-N-1)
 and serves MCP over Streamable-HTTP, so an AI can connect to
-`http://127.0.0.1:30002/mcp` and switch relays while you debug hardware
+`http://127.0.0.1:30001/mcp` and switch relays while you debug hardware
 (power-cycle a board, cut/restore a supply line, drive load switches, ...).
 
 **The AI does not start this program.** You start it; the AI is just a client.
@@ -48,7 +48,7 @@ python3 -m venv .venv
 Arguments:
 
 - `--device`  pin the serial node (default: auto-find by probing)
-- `--http`    MCP HTTP port (default `30002`); the AI connects to `http://127.0.0.1:30002/mcp`
+- `--http`    MCP HTTP port (default `30001`); the AI connects to `http://127.0.0.1:30001/mcp`
 
 Press **Ctrl-C** to exit.
 
@@ -60,7 +60,7 @@ Press **Ctrl-C** to exit.
   "mcp": {
     "xrelay": {
       "type": "remote",
-      "url": "http://127.0.0.1:30002/mcp",
+      "url": "http://127.0.0.1:30001/mcp",
       "enabled": true
     }
   }

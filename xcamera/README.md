@@ -1,16 +1,22 @@
 # xcamera - camera MCP server for hardware debugging
 
-A single file, `xcamera.py`: one process owns the camera (via `ffmpeg`/V4L2) and
-serves MCP over Streamable-HTTP on `http://127.0.0.1:30001/mcp`, so an AI can
-take photos and record short frame sequences while debugging live hardware --
-reading a board's display, LEDs, or the oscilloscope screen next to the serial
-console.
+A single file, `xcamera.py`: one process owns the camera (via `ffmpeg`/V4L2)
+and runs two servers side by side:
+
+- a **local preview** at `http://127.0.0.1:30003/` -- open it in a browser to
+  aim the camera at your board/screen while you work;
+- a **remote MCP server** at `http://127.0.0.1:30002/mcp` -- so an AI can take
+  photos and record short frame sequences while debugging live hardware
+  (reading a board's display, LEDs, or the oscilloscope screen next to the
+  serial console).
 
 **The AI does not start this program.** You start it; the AI is just a client.
 
-Uses `ffmpeg` as the capture backend (no OpenCV dependency). A single photo or
-a frame sequence is captured per call; concurrent tool calls are serialized so
-they never fight over `/dev/videoN`.
+Architecture: one persistent `ffmpeg` capture streams MJPEG into a shared
+frame buffer (latest frame + a 10 fps ring covering the last 60 s). Preview
+and MCP tools read from that buffer -- no re-encoding, no per-call camera
+open, and concurrent tool calls never fight over `/dev/videoN`. If the device
+is unplugged or `ffmpeg` dies, the capture restarts automatically.
 
 ## Install
 
@@ -29,10 +35,26 @@ sudo apt install ffmpeg   # capture backend
 
 Arguments:
 
-- `--device`  V4L2 device (default `/dev/video0`)
-- `--http`    MCP HTTP port (default `30001`); the AI connects to `http://127.0.0.1:30001/mcp`
+- `--device`       V4L2 device (default `/dev/video0`)
+- `--width/--height/--framerate` capture mode (default `1280x720@30`);
+  must be a mode your camera supports in MJPEG (check
+  `v4l2-ctl --list-formats-ext`), e.g. `--width 1920 --height 1080`
+- `--http`         MCP HTTP port (default `30002`)
+- `--preview-port` local preview port (default `30003`)
+- `--no-preview`   skip the preview server
 
 Press **Ctrl-C** to exit.
+
+## Local preview
+
+Open `http://127.0.0.1:30003/` in a browser (MJPEG `<img>` stream):
+
+- `/`            live view page
+- `/stream`      raw MJPEG stream (also works in VLC / other viewers)
+- `/snapshot.jpg` one current frame
+
+Memory note: the ring buffer keeps ~10 fps of compressed JPEG for 60 s
+(~70 MB at 1280x720, ~150 MB at 1920x1080).
 
 ## Connect an AI (opencode.json)
 
@@ -42,7 +64,7 @@ Press **Ctrl-C** to exit.
   "mcp": {
     "xcamera": {
       "type": "remote",
-      "url": "http://127.0.0.1:30001/mcp",
+      "url": "http://127.0.0.1:30002/mcp",
       "enabled": true
     }
   }
@@ -57,19 +79,20 @@ to start `xcamera.py`.
 
 | Tool                  | Purpose                                                                |
 |-----------------------|------------------------------------------------------------------------|
-| `camera_info`         | Show session status (device / ffmpeg / MCP URL)                        |
-| `camera_take_photo`   | Capture one JPEG photo (`width` / `height` / `quality`)                |
-| `camera_record_video` | Record JPEG frames over a duration (`duration_seconds` 1-60 / `max_frames` / ...) |
+| `camera_info`         | Show session status (device / stream health / URLs / last error)       |
+| `camera_take_photo`   | Grab the freshest frame from the live stream                           |
+| `camera_record_video` | Record frames over a duration (`duration_seconds` 1-60 / `max_frames`, sampled <=10 fps) |
 
-Note: `quality` is the ffmpeg `-q:v` scale (2 = best, 31 = worst), not a
-percentage.
+Photo resolution is the server capture mode (`--width/--height`), not a
+per-call argument.
 
 ## Typical debug flow
 
 ```
-AI: camera_info
-AI: camera_take_photo()                  # read what's on the scope/screen now
-AI: camera_record_video(duration_seconds=5, max_frames=10)   # catch a blinking LED
+you: open http://127.0.0.1:30003/ and aim the camera at the board
+AI:  camera_info
+AI:  camera_take_photo()                  # read what's on the scope/screen now
+AI:  camera_record_video(duration_seconds=5, max_frames=10)   # catch a blinking LED
 ```
 
 Combine with `xserial`: the AI talks to the device over serial while watching
@@ -78,8 +101,7 @@ its screen/LEDs through the camera.
 ## Troubleshooting
 
 - **ffmpeg not found** -- install it (`sudo apt install ffmpeg`).
-- **Device or resource busy** -- another program (or another `xcamera.py`)
-  holds the camera; close it first.
-- **Resolution not supported** -- ffmpeg falls back to the nearest supported
-  size; check `v4l2-ctl --list-formats-ext` (or `ffmpeg -f v4l2 -list_formats
-  all -i /dev/video0`) for supported sizes.
+- **Device or resource busy** -- another program holds the camera; close it.
+- **Unsupported resolution / stream DOWN** -- pick a mode from
+  `v4l2-ctl --list-formats-ext` and restart with `--width/--height/--framerate`;
+  `camera_info` shows `last_error` with ffmpeg's complaint.
