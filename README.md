@@ -27,6 +27,12 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
 | `xrelay` | 4-channel USB relay board (auto-finds its node) | `http://127.0.0.1:30001/mcp` |
 | `xcamera`| Camera capture (photo + frame sequences)     | `http://127.0.0.1:30002/mcp` (preview `http://127.0.0.1:30003/`) |
 
+Every server binds `0.0.0.0` by default, so it is reachable both locally and
+from other machines on your LAN. From another machine, replace `127.0.0.1`
+with this host's LAN IP, e.g. `http://192.168.x.x:30002/mcp`. Start any server
+with `--host 127.0.0.1` to restrict it to this machine. There is **no auth**,
+so only expose these on networks you trust.
+
 ## Connect an AI (opencode.json)
 
 ```json

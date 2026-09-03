@@ -19,7 +19,10 @@ skipped. The found node is cached and re-scanned automatically on the next
 command after a replug.
 
 Usage:
-    xrelay.py [--device /dev/ttyUSB1] [--http 30001]
+    xrelay.py [--device /dev/ttyUSB1] [--http 30001] [--host 0.0.0.0]
+
+Serves on 0.0.0.0 by default, so both this machine and other machines on the
+LAN can connect (use --host 127.0.0.1 to restrict to this machine).
 
 The AI does not start this program; you do.
 
@@ -32,6 +35,7 @@ import argparse
 import glob
 import logging
 import os
+import socket
 import sys
 import threading
 import time
@@ -40,7 +44,7 @@ from typing import Optional
 import serial
 from mcp.server.mcpserver import MCPServer
 
-HOST = "127.0.0.1"
+DEFAULT_HOST = "0.0.0.0"
 DEFAULT_HTTP_PORT = 30001
 HTTP_PATH = "/mcp"
 DEFAULT_BAUDRATE = 9600
@@ -55,6 +59,23 @@ RESP_TIMEOUT = 0.5
 MIN_PULSE_MS, MAX_PULSE_MS, DEFAULT_PULSE_MS = 50, 10_000, 500
 
 mcp = MCPServer("xrelay")
+
+host = DEFAULT_HOST
+
+
+def _lan_ip() -> str:
+    """Best-effort LAN IP for display (no packet is actually sent)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+
+
+def _advertise() -> str:
+    """Host shown in URLs: the bind host if specific, else the LAN IP."""
+    return host if host not in ("0.0.0.0", "::") else _lan_ip()
 
 
 class RelayError(Exception):
@@ -291,7 +312,7 @@ def relay_info() -> str:
         f"serial={DEFAULT_BAUDRATE} 8N1, frame=A0 <addr 01-04> <cmd> <sum>\n"
         f"last_known_state: {states} (relay_status queries live)\n"
         f"candidates={', '.join(RelayBoard.candidates()) or 'none'}\n"
-        f"mcp_url=http://{HOST}:{http_port}{HTTP_PATH}"
+        f"mcp_url=http://{_advertise()}:{http_port}{HTTP_PATH}"
     )
 
 
@@ -375,22 +396,23 @@ def _serve_http() -> None:
     try:
         mcp.run(
             transport="streamable-http",
-            host=HOST,
+            host=host,
             port=http_port,
             streamable_http_path=HTTP_PATH,
         )
     except OSError as e:
-        print(f"[xrelay] MCP server failed on {HOST}:{http_port}: {e}", file=sys.stderr)
+        print(f"[xrelay] MCP server failed on {host}:{http_port}: {e}", file=sys.stderr)
 
 
-def run(device: Optional[str], http: int) -> None:
-    global board, http_port
+def run(device: Optional[str], http: int, bind_host: str = DEFAULT_HOST) -> None:
+    global board, http_port, host
     http_port = http
+    host = bind_host
     board = RelayBoard(device)
     threading.Thread(target=_serve_http, daemon=True).start()
     print(f"[xrelay] device: {device or 'auto-find (probes /dev/ttyUSB*, /dev/ttyACM*) on first command'}",
           file=sys.stderr)
-    print(f"[xrelay] MCP server: http://{HOST}:{http}{HTTP_PATH}", file=sys.stderr)
+    print(f"[xrelay] MCP server: http://{_advertise()}:{http}{HTTP_PATH}", file=sys.stderr)
     print("[xrelay] press Ctrl-C to exit", file=sys.stderr)
     try:
         while True:
@@ -412,8 +434,11 @@ def main() -> None:
                         help="pin the serial node (e.g. /dev/ttyUSB1); default: auto-find by probing")
     parser.add_argument("--http", type=int, default=DEFAULT_HTTP_PORT,
                         help=f"MCP HTTP port (default {DEFAULT_HTTP_PORT})")
+    parser.add_argument("--host", default=DEFAULT_HOST,
+                        help=f"bind address; 0.0.0.0 = reachable via LAN IP, "
+                             f"127.0.0.1 = local only (default {DEFAULT_HOST})")
     args = parser.parse_args()
-    run(args.device, args.http)
+    run(args.device, args.http, args.host)
 
 
 if __name__ == "__main__":

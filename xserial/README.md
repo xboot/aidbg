@@ -25,6 +25,7 @@ Arguments:
 
 - `baud`    baudrate (default `115200`)
 - `--http`  MCP HTTP port (default `30000`); the AI connects to `http://127.0.0.1:30000/mcp`
+- `--host`  bind address (default `0.0.0.0` = reachable via LAN IP; use `127.0.0.1` for this machine only)
 
 Press **Ctrl-]** in the terminal to exit (the serial port closes with it).
 
@@ -45,7 +46,8 @@ Press **Ctrl-]** in the terminal to exit (the serial port closes with it).
 
 If the service isn't running, opencode can't fetch its tools. Have the AI call
 `serial_info` first to confirm the session is up; if it fails, it will ask you
-to start `xserial.py`.
+to start `xserial.py`. If the AI runs on another machine, point `url` at this
+host's LAN IP instead of `127.0.0.1`.
 
 ## Provided tools
 

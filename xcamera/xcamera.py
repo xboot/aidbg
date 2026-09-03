@@ -10,7 +10,11 @@ the serial console).
 
 Usage:
     xcamera.py [--device /dev/video0] [--width 1280 --height 720]
-               [--http 30002] [--preview-port 30003] [--no-preview]
+               [--http 30002] [--preview-port 30003] [--host 0.0.0.0]
+               [--no-preview]
+
+Serves on 0.0.0.0 by default, so both this machine and other machines on the
+LAN can connect (use --host 127.0.0.1 to restrict to this machine).
 
 The AI does not start this program; you do. Frames pass through as JPEG
 bytes without re-encoding (ffmpeg -c copy), and concurrent tool calls share
@@ -22,6 +26,7 @@ Requires: ffmpeg on PATH (no OpenCV needed).
 import argparse
 import logging
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -35,7 +40,7 @@ from typing import Optional
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.utilities.types import Image
 
-HOST = "127.0.0.1"
+DEFAULT_HOST = "0.0.0.0"
 DEFAULT_HTTP_PORT = 30002
 DEFAULT_PREVIEW_PORT = 30003
 HTTP_PATH = "/mcp"
@@ -47,6 +52,23 @@ STALE_SECONDS = 5.0      # take_photo rejects frames older than this
 SOI, EOI = b"\xff\xd8", b"\xff\xd9"
 
 mcp = MCPServer("xcamera")
+
+host = DEFAULT_HOST
+
+
+def _lan_ip() -> str:
+    """Best-effort LAN IP for display (no packet is actually sent)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+
+
+def _advertise() -> str:
+    """Host shown in URLs: the bind host if specific, else the LAN IP."""
+    return host if host not in ("0.0.0.0", "::") else _lan_ip()
 
 
 class CameraError(Exception):
@@ -230,8 +252,8 @@ def camera_info() -> str:
         f"stream={'up' if streaming else 'DOWN'}"
         + (f", last frame {age:.1f}s ago" if age is not None else ", no frames yet"),
         f"ffmpeg={shutil.which('ffmpeg') or 'NOT FOUND'}",
-        f"mcp_url=http://{HOST}:{http_port}{HTTP_PATH}",
-        f"preview_url=http://{HOST}:{preview_port}/",
+        f"mcp_url=http://{_advertise()}:{http_port}{HTTP_PATH}",
+        f"preview_url=http://{_advertise()}:{preview_port}/",
     ]
     if err:
         lines.append(f"last_error={err}")
@@ -274,12 +296,12 @@ def _serve_mcp() -> None:
     try:
         mcp.run(
             transport="streamable-http",
-            host=HOST,
+            host=host,
             port=http_port,
             streamable_http_path=HTTP_PATH,
         )
     except OSError as e:
-        print(f"[xcamera] MCP server failed on {HOST}:{http_port}: {e}", file=sys.stderr)
+        print(f"[xcamera] MCP server failed on {host}:{http_port}: {e}", file=sys.stderr)
 
 
 PREVIEW_PAGE = """<!doctype html>
@@ -358,16 +380,17 @@ class _PreviewHandler(BaseHTTPRequestHandler):
 def _serve_preview(port: int) -> None:
     """Serve the local preview (blocking; runs in a background thread)."""
     try:
-        ThreadingHTTPServer((HOST, port), _PreviewHandler).serve_forever()
+        ThreadingHTTPServer((host, port), _PreviewHandler).serve_forever()
     except OSError as e:
-        print(f"[xcamera] preview server failed on {HOST}:{port}: {e}", file=sys.stderr)
+        print(f"[xcamera] preview server failed on {host}:{port}: {e}", file=sys.stderr)
 
 
 def run(device: str, http: int, preview: int, no_preview: bool,
-        width: int, height: int, framerate: int) -> None:
-    global camera, http_port, preview_port
+        width: int, height: int, framerate: int, bind_host: str = DEFAULT_HOST) -> None:
+    global camera, http_port, preview_port, host
     http_port = http
     preview_port = preview
+    host = bind_host
     Camera.check_ffmpeg()
     camera = Camera(device, width, height, framerate)
     if not Path(device).exists():
@@ -375,9 +398,9 @@ def run(device: str, http: int, preview: int, no_preview: bool,
     camera.start()
     if not no_preview:
         threading.Thread(target=_serve_preview, args=(preview,), daemon=True).start()
-        print(f"[xcamera] preview: http://{HOST}:{preview}/", file=sys.stderr)
+        print(f"[xcamera] preview: http://{_advertise()}:{preview}/", file=sys.stderr)
     threading.Thread(target=_serve_mcp, daemon=True).start()
-    print(f"[xcamera] MCP server: http://{HOST}:{http}{HTTP_PATH}", file=sys.stderr)
+    print(f"[xcamera] MCP server: http://{_advertise()}:{http}{HTTP_PATH}", file=sys.stderr)
     print("[xcamera] press Ctrl-C to exit", file=sys.stderr)
     try:
         while True:
@@ -406,10 +429,13 @@ def main() -> None:
                         help=f"MCP HTTP port (default {DEFAULT_HTTP_PORT})")
     parser.add_argument("--preview-port", type=int, default=DEFAULT_PREVIEW_PORT,
                         help=f"local preview port (default {DEFAULT_PREVIEW_PORT})")
+    parser.add_argument("--host", default=DEFAULT_HOST,
+                        help=f"bind address; 0.0.0.0 = reachable via LAN IP, "
+                             f"127.0.0.1 = local only (default {DEFAULT_HOST})")
     parser.add_argument("--no-preview", action="store_true", help="disable the local preview server")
     args = parser.parse_args()
     run(args.device, args.http, args.preview_port, args.no_preview,
-        args.width, args.height, args.framerate)
+        args.width, args.height, args.framerate, args.host)
 
 
 if __name__ == "__main__":

@@ -49,6 +49,7 @@ Arguments:
 
 - `--device`  pin the serial node (default: auto-find by probing)
 - `--http`    MCP HTTP port (default `30001`); the AI connects to `http://127.0.0.1:30001/mcp`
+- `--host`    bind address (default `0.0.0.0` = reachable via LAN IP; use `127.0.0.1` for this machine only)
 
 Press **Ctrl-C** to exit.
 
@@ -69,7 +70,8 @@ Press **Ctrl-C** to exit.
 
 If the service isn't running, opencode can't fetch its tools. Have the AI call
 `relay_info` first to confirm the server is up; if it fails, it will ask you
-to start `xrelay.py`.
+to start `xrelay.py`. If the AI runs on another machine, point `url` at this
+host's LAN IP instead of `127.0.0.1`.
 
 ## Provided tools
 

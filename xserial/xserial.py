@@ -3,10 +3,13 @@
 
 One process owns the physical serial port: you interact in the terminal while it
 also serves MCP over Streamable-HTTP, so an AI can share the same session via
-http://127.0.0.1:30000/mcp.
+http://<host>:30000/mcp.
 
 Usage:
-    xserial.py /dev/ttyUSB0 [baud] [--http 30000]
+    xserial.py /dev/ttyUSB0 [baud] [--http 30000] [--host 0.0.0.0]
+
+Serves on 0.0.0.0 by default, so both this machine and other machines on the
+LAN can connect (use --host 127.0.0.1 to restrict to this machine).
 
 Press Ctrl-] in the terminal to exit (the serial port closes with it). The AI
 does not start this program; you do.
@@ -18,6 +21,7 @@ import logging
 import os
 import re
 import select
+import socket
 import sys
 import termios
 import threading
@@ -28,7 +32,7 @@ from typing import Callable, Optional
 import serial
 from mcp.server.mcpserver import MCPServer
 
-HOST = "127.0.0.1"
+DEFAULT_HOST = "0.0.0.0"
 DEFAULT_BAUDRATE = 115200
 DEFAULT_TIMEOUT = 3.0
 DEFAULT_PROMPTS = [">", "#", "$", "?"]
@@ -36,6 +40,23 @@ DEFAULT_HTTP_PORT = 30000
 HTTP_PATH = "/mcp"
 
 mcp = MCPServer("xserial")
+
+host = DEFAULT_HOST
+
+
+def _lan_ip() -> str:
+    """Best-effort LAN IP for display (no packet is actually sent)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+
+
+def _advertise() -> str:
+    """Host shown in URLs: the bind host if specific, else the LAN IP."""
+    return host if host not in ("0.0.0.0", "::") else _lan_ip()
 
 
 class SerialSession:
@@ -294,14 +315,14 @@ def serial_info() -> str:
     if not session.is_open:
         return (
             "serial port not open\n"
-            f"mcp_url=http://{HOST}:{session.http_port}{HTTP_PATH}"
+            f"mcp_url=http://{_advertise()}:{session.http_port}{HTTP_PATH}"
         )
     return (
         f"port={session.port}\n"
         f"baudrate={session.baudrate}\n"
         f"rx_buffered={len(session.peek_available())} bytes\n"
         f"last_prompt={session.last_prompt!r}\n"
-        f"mcp_url=http://{HOST}:{session.http_port}{HTTP_PATH}"
+        f"mcp_url=http://{_advertise()}:{session.http_port}{HTTP_PATH}"
     )
 
 
@@ -407,15 +428,18 @@ def _serve_http(http_port: int) -> None:
     try:
         mcp.run(
             transport="streamable-http",
-            host=HOST,
+            host=host,
             port=http_port,
             streamable_http_path=HTTP_PATH,
         )
     except OSError as e:
-        print(f"[xserial] MCP server failed on {HOST}:{http_port}: {e}", file=sys.stderr)
+        print(f"[xserial] MCP server failed on {host}:{http_port}: {e}", file=sys.stderr)
 
 
-def run(port: str, baudrate: int, http_port: int = DEFAULT_HTTP_PORT) -> None:
+def run(port: str, baudrate: int, http_port: int = DEFAULT_HTTP_PORT,
+        bind_host: str = DEFAULT_HOST) -> None:
+    global host
+    host = bind_host
     session.http_port = http_port
     try:
         session.open(port, baudrate)
@@ -424,7 +448,7 @@ def run(port: str, baudrate: int, http_port: int = DEFAULT_HTTP_PORT) -> None:
         sys.exit(1)
     threading.Thread(target=_serve_http, args=(http_port,), daemon=True).start()
     print(f"[xserial] Opened {port} @ {baudrate}bps", file=sys.stderr)
-    print(f"[xserial] MCP server: http://{HOST}:{http_port}{HTTP_PATH}", file=sys.stderr)
+    print(f"[xserial] MCP server: http://{_advertise()}:{http_port}{HTTP_PATH}", file=sys.stderr)
     try:
         HumanTerm(session).run()
     finally:
@@ -441,13 +465,16 @@ def main() -> None:
     parser.add_argument("port", help="serial device path (e.g. /dev/ttyUSB0, /dev/ttyACM0)")
     parser.add_argument("baud", nargs="?", type=int, default=DEFAULT_BAUDRATE, help=f"baudrate (default {DEFAULT_BAUDRATE})")
     parser.add_argument("--http", type=int, default=DEFAULT_HTTP_PORT, help=f"MCP HTTP port (default {DEFAULT_HTTP_PORT})")
+    parser.add_argument("--host", default=DEFAULT_HOST,
+                        help=f"bind address; 0.0.0.0 = reachable via LAN IP, "
+                             f"127.0.0.1 = local only (default {DEFAULT_HOST})")
     args = parser.parse_args()
 
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         print("[xserial] interactive mode requires a real terminal", file=sys.stderr)
         sys.exit(1)
 
-    run(args.port, args.baud, http_port=args.http)
+    run(args.port, args.baud, http_port=args.http, bind_host=args.host)
 
 
 if __name__ == "__main__":

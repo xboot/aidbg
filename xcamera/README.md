@@ -41,13 +41,16 @@ Arguments:
   `v4l2-ctl --list-formats-ext`), e.g. `--width 1920 --height 1080`
 - `--http`         MCP HTTP port (default `30002`)
 - `--preview-port` local preview port (default `30003`)
+- `--host`         bind address (default `0.0.0.0` = reachable via LAN IP;
+  use `127.0.0.1` for this machine only)
 - `--no-preview`   skip the preview server
 
 Press **Ctrl-C** to exit.
 
 ## Local preview
 
-Open `http://127.0.0.1:30003/` in a browser (MJPEG `<img>` stream):
+Open `http://127.0.0.1:30003/` in a browser (MJPEG `<img>` stream); from
+another machine on the LAN use `http://<host-ip>:30003/` instead:
 
 - `/`            live view page
 - `/stream`      raw MJPEG stream (also works in VLC / other viewers)
@@ -73,7 +76,8 @@ Memory note: the ring buffer keeps ~10 fps of compressed JPEG for 60 s
 
 If the service isn't running, opencode can't fetch its tools. Have the AI call
 `camera_info` first to confirm the session is up; if it fails, it will ask you
-to start `xcamera.py`.
+to start `xcamera.py`. If the AI runs on another machine, point `url` at this
+host's LAN IP instead of `127.0.0.1`.
 
 ## Provided tools
 
