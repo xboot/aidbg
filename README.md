@@ -19,6 +19,18 @@ aidbg/
 
 Each subdirectory is self-contained (own `README.md`, own dependencies).
 
+## Hardware
+
+The tools drive a physical debugging rig — the **AIDBG 调试器** (AIDBG
+debugger): a 3D-printed enclosure carrying the USB relay / serial electronics,
+with DC power sockets, screw terminal blocks and RJ45 ports, plus a flexible
+arm that holds a camera above the board under test (used by `xcamera`).
+
+|                                                                                     |                                                                                     |
+|-------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| ![Rig overview with camera arm](docs/images/hardware-overview.jpg)                  | ![Front: power sockets and terminal blocks](docs/images/hardware-front.png)         |
+| ![Enclosure top view with camera](docs/images/hardware-top.jpg)                     | ![Side: RJ45 ports](docs/images/hardware-side-rj45.jpg)                             |
+
 ## MCP endpoints
 
 | Server   | Description                                  | Default endpoint               |
