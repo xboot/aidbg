@@ -21,10 +21,28 @@ Each subdirectory is self-contained (own `README.md`, own dependencies).
 
 ## Hardware
 
-The tools drive a physical debugging rig — the **AIDBG 调试器** (AIDBG
-debugger): a 3D-printed enclosure carrying the USB relay / serial electronics,
-with DC power sockets, screw terminal blocks and RJ45 ports, plus a flexible
-arm that holds a camera above the board under test (used by `xcamera`).
+The tools run against a physical debugging rig — the **AIDBG 调试器** (AIDBG
+debugger): a fully-automatic debug fixture DIYed from off-the-shelf modules
+inside a 3D-printed enclosure. On the outside it only needs an external
+12 V DC supply and a single USB Type-C cable to the host.
+
+Internals:
+
+- 12 V → 5 V DC-DC module
+- 7-port USB hub — 2 ports are used by the devices below, the rest are free
+  for the board under test (e.g. a USB-UART adapter for `xserial`)
+- 4-channel USB relay board, driven by `xrelay`
+- USB camera on a flexible gooseneck arm, driven by `xcamera`
+
+Relay channels:
+
+- 2 channels switch the external 12 V / 5 V power outputs (screw terminals on
+  the front) to power-cycle the board under test
+- 2 channels are reserved for simulating key presses and similar triggers
+
+With `xserial` (serial console) + `xrelay` (power switching / key simulation)
++ `xcamera` (visual feedback) over MCP, the AI can power-cycle a board, watch
+it through the camera and drive its console — fully automatic debugging.
 
 |                                                                                     |                                                                                     |
 |-------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
