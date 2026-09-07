@@ -116,3 +116,7 @@ preview to aim the camera at your board:
 .venv/bin/pip install mcp
 .venv/bin/python xcamera/xcamera.py    # preview: http://127.0.0.1:30003/
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
